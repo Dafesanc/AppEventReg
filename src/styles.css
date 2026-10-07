@@ -1,0 +1,136 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #050309;
+  --color-ink-2: #0d0717;
+  --color-plum: #1b0d2e;
+  --color-neon: #ff3ec9;
+  --color-rose: #ff7ad1;
+  --color-violet: #a855f7;
+  --color-indigo: #6a4bff;
+  --color-haze: #cdbfe6;
+  --color-mist: #9d8fb8;
+  --color-whatsapp: #25d366;
+
+  --font-display: "Anton", "Impact", "Arial Narrow", sans-serif;
+  --font-script: "Kaushan Script", "Brush Script MT", cursive;
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Space Mono", ui-monospace, monospace;
+
+  --animate-drift: drift 24s ease-in-out infinite alternate;
+  --animate-drift-slow: drift 34s ease-in-out infinite alternate-reverse;
+  --animate-marquee: marquee 38s linear infinite;
+  --animate-flicker: flicker 6s linear infinite;
+  --animate-rise: rise 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+
+  @keyframes drift {
+    from { transform: translate3d(-6%, -4%, 0) scale(1); }
+    to { transform: translate3d(6%, 5%, 0) scale(1.15); }
+  }
+  @keyframes marquee {
+    to { transform: translate3d(-50%, 0, 0); }
+  }
+  @keyframes flicker {
+    0%, 18%, 22%, 25%, 53%, 57%, 100% { opacity: 1; }
+    20%, 24%, 55% { opacity: 0.55; }
+  }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: none; }
+  }
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    color-scheme: dark;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-ink font-sans text-haze antialiased;
+    overflow-x: clip;
+  }
+  ::selection {
+    @apply bg-neon text-ink;
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-rose;
+  }
+}
+
+/* Pink → violet → indigo, same sweep as the logo lettering. */
+@utility text-gradient {
+  background: linear-gradient(100deg, #ff7ad1 0%, #ff3ec9 35%, #a855f7 70%, #6a4bff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Brushed silver like the inspo "COMBO" headings. */
+@utility text-chrome {
+  background: linear-gradient(180deg, #ffffff 0%, #f1e9ff 40%, #9d8fb8 52%, #ffffff 75%, #d9ccf2 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 18px rgb(255 62 201 / 0.35));
+}
+
+/* Film grain to soften gradient banding. */
+@utility grain {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+@utility glow-neon {
+  box-shadow:
+    0 0 0 1px rgb(255 62 201 / 0.7),
+    0 0 18px rgb(255 62 201 / 0.45),
+    inset 0 0 22px rgb(255 62 201 / 0.18);
+}
+
+@utility eyebrow {
+  @apply font-mono text-xs tracking-[0.35em] uppercase text-rose;
+}
+
+@utility card {
+  @apply rounded-3xl border border-white/10 bg-white/[0.035] backdrop-blur-md;
+}
+
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-full px-7 py-3.5 text-sm font-bold tracking-wide uppercase transition duration-200 disabled:cursor-not-allowed disabled:opacity-60;
+}
+
+@utility btn-primary {
+  @apply btn text-white;
+  background: linear-gradient(100deg, #ff3ec9, #a855f7 60%, #6a4bff);
+  box-shadow: 0 10px 40px -10px rgb(255 62 201 / 0.7);
+  &:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 50px -10px rgb(255 62 201 / 0.9);
+  }
+}
+
+@utility btn-ghost {
+  @apply btn border border-white/20 text-white hover:border-rose hover:bg-white/5;
+}
+
+@utility field {
+  @apply w-full rounded-2xl border border-white/12 bg-ink-2/80 px-4 py-3.5 text-base text-white placeholder:text-mist/70 transition outline-none focus:border-neon focus:ring-4 focus:ring-neon/20;
+}
+
+/* Fade-and-rise on scroll, CSS only; browsers without scroll timelines just show content. */
+@supports (animation-timeline: view()) {
+  .reveal {
+    animation: rise linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 40%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

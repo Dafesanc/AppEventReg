@@ -1,0 +1,121 @@
+@if (registration(); as r) {
+  <div class="text-center motion-safe:animate-rise" role="status" aria-live="polite">
+    <span class="glow-neon mx-auto grid size-16 place-items-center rounded-full text-neon">
+      <app-icon name="check" class="size-8" />
+    </span>
+
+    <h3 class="mt-5 font-display text-4xl leading-tight text-white uppercase">
+      @if (r.alreadyRegistered) {
+        Ya estás en la lista, {{ firstName() }}
+      } @else {
+        ¡Estás dentro, {{ firstName() }}!
+      }
+    </h3>
+
+    <p class="mt-3 text-sm">Tu código de pre-registro</p>
+    <button
+      type="button"
+      (click)="copyTicket()"
+      class="mt-2 inline-flex items-center gap-3 rounded-2xl border border-dashed border-rose/60 bg-ink-2 px-6 py-3 font-mono text-2xl tracking-[0.2em] text-white transition hover:border-neon"
+      [attr.aria-label]="'Copiar código ' + r.ticket"
+    >
+      {{ r.ticket }}
+      <app-icon [name]="copied() ? 'check' : 'copy'" class="size-5 text-rose" />
+    </button>
+
+    @if (r.paid) {
+      <p class="mt-6 flex items-center justify-center gap-2 rounded-2xl border border-whatsapp/40 bg-whatsapp/10 px-4 py-3 text-sm font-semibold text-white">
+        <app-icon name="check" class="size-5 text-whatsapp" />
+        Entrada pagada. ¡Nos vemos en {{ event.name }}!
+      </p>
+    } @else {
+      <p class="mt-6 text-sm leading-relaxed">
+        Último paso: paga tu cover de <strong class="text-white">{{ coverLabel }}</strong> para confirmar tu entrada.
+      </p>
+
+      <a
+        [href]="whatsappLink()"
+        target="_blank"
+        rel="noopener"
+        class="btn mt-5 w-full bg-whatsapp text-ink hover:-translate-y-0.5 hover:brightness-110"
+      >
+        <app-icon name="whatsapp" class="size-5" />
+        Pagar por transferencia
+      </a>
+      <p class="mt-2 text-xs text-mist">Se abre WhatsApp con tus datos listos para enviar.</p>
+
+      @if (event.cardPaymentsEnabled) {
+        <button type="button" class="btn-ghost mt-5 w-full" (click)="payWithCard()" [disabled]="paying()">
+          <app-icon name="card" class="size-5" />
+          {{ paying() ? 'Abriendo pago seguro…' : 'Pagar con tarjeta' }}
+        </button>
+        <p class="mt-2 text-xs text-mist">Débito o crédito · procesado por PayPhone</p>
+      }
+    }
+
+    @if (serverError(); as message) {
+      <p class="mt-5 rounded-2xl border border-neon/40 bg-neon/10 px-4 py-3 text-sm text-white" role="alert">{{ message }}</p>
+    }
+
+    <button
+      type="button"
+      class="mt-7 text-xs text-mist underline underline-offset-4 transition hover:text-white"
+      (click)="registerAnother()"
+    >
+      Registrar a otra persona
+    </button>
+  </div>
+} @else {
+  <form [formGroup]="form" (ngSubmit)="submit()" novalidate class="space-y-5">
+    @for (f of fields; track f.name) {
+      <div>
+        <label [for]="f.name" class="mb-2 block text-sm font-semibold text-white">{{ f.label }}</label>
+        <div class="relative">
+          <app-icon [name]="f.icon" class="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-mist" />
+          <input
+            [id]="f.name"
+            [formControlName]="f.name"
+            [type]="f.type"
+            [attr.inputmode]="f.inputmode"
+            [attr.autocomplete]="f.autocomplete"
+            [attr.maxlength]="f.maxlength"
+            [placeholder]="f.placeholder"
+            [attr.aria-invalid]="!!error(f.name)"
+            [attr.aria-describedby]="error(f.name) ? f.name + '-error' : null"
+            class="field pl-12"
+            enterkeyhint="next"
+          />
+        </div>
+        @if (error(f.name); as message) {
+          <p [id]="f.name + '-error'" class="mt-2 flex items-start gap-1.5 text-sm text-rose">
+            <app-icon name="alert" class="mt-0.5 size-4" />
+            {{ message }}
+          </p>
+        }
+      </div>
+    }
+
+    <!-- Honeypot: hidden from people, tempting for bots. -->
+    <div class="absolute -left-[9999px] h-px w-px overflow-hidden" aria-hidden="true">
+      <label>Sitio web <input formControlName="website" tabindex="-1" autocomplete="off" /></label>
+    </div>
+
+    @if (serverError(); as message) {
+      <p class="rounded-2xl border border-neon/40 bg-neon/10 px-4 py-3 text-sm text-white" role="alert">{{ message }}</p>
+    }
+
+    <button type="submit" class="btn-primary w-full py-4 text-base" [disabled]="submitting()">
+      @if (submitting()) {
+        Registrando…
+      } @else {
+        Pre-registrarme
+        <app-icon name="arrowRight" class="size-5" />
+      }
+    </button>
+
+    <p class="text-center text-xs leading-relaxed text-mist">
+      <app-icon name="lock" class="mr-1 inline size-3.5 align-[-2px]" />
+      Tus datos solo se usan para gestionar tu entrada a {{ event.name }}.
+    </p>
+  </form>
+}
