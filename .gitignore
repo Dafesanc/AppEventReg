@@ -40,9 +40,15 @@ testem.log
 __screenshots__/
 
 # Secrets
-.env
 .env.*
 !.env.example
+.dev.vars*
+.env.local
+.env.dev
+.env
+
+# Cloudflare Wrangler local state
+.wrangler/
 
 # System files
 .DS_Store

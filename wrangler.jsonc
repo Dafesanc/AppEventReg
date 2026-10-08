@@ -1,0 +1,18 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Becomes https://euphoria.<tu-subdominio>.workers.dev
+  "name": "euphoria",
+  // Angular SSR server bundle (built with `ng build`, platform "neutral").
+  "main": "dist/AppEventReg/server/server.mjs",
+  "compatibility_date": "2026-10-01",
+  // Also exposes secrets/vars through process.env, which the API reads.
+  "compatibility_flags": ["nodejs_compat"],
+  // Static files and the prerendered landing are served from Cloudflare's CDN without invoking the Worker.
+  "assets": {
+    "directory": "dist/AppEventReg/browser"
+  },
+  "observability": {
+    "enabled": true
+  }
+  // Secrets (not here): npx wrangler secret put SUPABASE_URL | SUPABASE_SECRET_KEY | ADMIN_PASSWORD
+}

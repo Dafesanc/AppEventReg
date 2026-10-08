@@ -1,17 +1,26 @@
 import { Workbook } from 'exceljs';
-import { EVENT } from '../app/shared/event.config';
-import { type AdminRegistration, formatLocalPhone } from '../app/shared/registration';
+import { EVENT } from '../../shared/event.config';
+import { type AdminRegistration, formatLocalPhone } from '../../shared/registration';
+
+/*
+ * Built in the browser (lazy-loaded only when the admin clicks "Descargar Excel"), so the
+ * Cloudflare Worker never pays the CPU cost of zipping the spreadsheet.
+ */
 
 const ECUADOR_OFFSET_MS = -5 * 60 * 60 * 1000;
+const METHOD_LABEL = { transfer: 'Transferencia', payphone: 'Tarjeta (PayPhone)' } as const;
 
 /** Excel dates have no timezone; shift to Ecuador time (UTC-5, no DST) so cells read as local time. */
 function ecuadorDate(iso: string | null): Date | null {
   return iso ? new Date(Date.parse(iso) + ECUADOR_OFFSET_MS) : null;
 }
 
-const METHOD_LABEL = { transfer: 'Transferencia', payphone: 'Tarjeta (PayPhone)' } as const;
+export function exportFileName(now = new Date()): string {
+  const date = new Date(now.getTime() + ECUADOR_OFFSET_MS).toISOString().slice(0, 10);
+  return `${EVENT.name.toLowerCase()}-registros-${date}.xlsx`;
+}
 
-export async function buildRegistrationsWorkbook(rows: AdminRegistration[]): Promise<Buffer> {
+export async function buildRegistrationsWorkbook(rows: AdminRegistration[]): Promise<Blob> {
   const workbook = new Workbook();
   workbook.creator = EVENT.name;
   workbook.created = new Date();
@@ -52,5 +61,7 @@ export async function buildRegistrationsWorkbook(rows: AdminRegistration[]): Pro
   header.height = 22;
   sheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: sheet.columnCount } };
 
-  return Buffer.from(await workbook.xlsx.writeBuffer());
+  return new Blob([await workbook.xlsx.writeBuffer()], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
 }

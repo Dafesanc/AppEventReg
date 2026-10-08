@@ -1,102 +1,63 @@
-import {
-  AngularNodeAppEngine,
-  createNodeRequestHandler,
-  isMainModule,
-  writeResponseToNodeResponse,
-} from '@angular/ssr/node';
-import express from 'express';
-import { join } from 'node:path';
+import { AngularAppEngine, createRequestHandler } from '@angular/ssr';
+import { Hono } from 'hono';
+import { secureHeaders } from 'hono/secure-headers';
 import { EVENT } from './app/shared/event.config';
 import { api } from './server/api';
 
-// Local development: read secrets from .env (in production the host provides them).
-try {
-  process.loadEnvFile();
-} catch {
-  // No .env file — rely on real environment variables.
+// Angular dev server (Node): read secrets from .env. On Cloudflare they arrive through
+// process.env (nodejs_compat), and `wrangler dev` reads .env by itself.
+if (globalThis.navigator?.userAgent !== 'Cloudflare-Workers') {
+  try {
+    process.loadEnvFile();
+  } catch {
+    // No .env file — rely on real environment variables.
+  }
 }
 
-const browserDistFolder = join(import.meta.dirname, '../browser');
-const siteUrl = process.env['SITE_URL'] ?? EVENT.siteUrl;
-
-const app = express();
-// SSRF protection: Angular only server-renders for these hostnames (extra ones via NG_ALLOWED_HOSTS).
-const extraHosts = (process.env['NG_ALLOWED_HOSTS'] ?? '').split(',').map((h) => h.trim());
-const angularApp = new AngularNodeAppEngine({
-  allowedHosts: [
-    ...new Set(['localhost', new URL(siteUrl).hostname, new URL(EVENT.siteUrl).hostname, ...extraHosts]),
-  ].filter(Boolean),
+// SSRF protection: Angular only renders for these hosts. *.workers.dev covers Cloudflare's free subdomain.
+const angularApp = new AngularAppEngine({
+  allowedHosts: ['localhost', '127.0.0.1', '*.workers.dev', new URL(EVENT.siteUrl).hostname],
 });
 
-// Behind a proxy/CDN (Render, Railway, Fly…) so req.ip is the real client for rate limiting.
-app.set('trust proxy', 1);
-app.disable('x-powered-by');
+const app = new Hono();
 
-app.use((_req, res, next) => {
-  res.set({
-    'X-Content-Type-Options': 'nosniff',
-    'Referrer-Policy': 'strict-origin-when-cross-origin',
-    'X-Frame-Options': 'SAMEORIGIN',
-  });
-  next();
-});
-
-app.use('/api', api);
-
-app.get('/robots.txt', (_req, res) => {
-  res.type('text/plain').send(
-    `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/\nDisallow: /pago/\n\nSitemap: ${siteUrl}/sitemap.xml\n`,
-  );
-});
-
-app.get('/sitemap.xml', (_req, res) => {
-  res.type('application/xml').send(
-    `<?xml version="1.0" encoding="UTF-8"?>\n` +
-      `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">` +
-      `<url><loc>${siteUrl}/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>` +
-      `</urlset>\n`,
-  );
-});
-
-/**
- * Serve static files from /browser
- */
 app.use(
-  express.static(browserDistFolder, {
-    maxAge: '1y',
-    index: false,
-    redirect: false,
+  secureHeaders({
+    xFrameOptions: 'SAMEORIGIN',
+    referrerPolicy: 'strict-origin-when-cross-origin',
   }),
 );
 
-/**
- * Handle all other requests by rendering the Angular application.
- */
-app.use((req, res, next) => {
-  angularApp
-    .handle(req)
-    .then((response) =>
-      response ? writeResponseToNodeResponse(response, res) : next(),
-    )
-    .catch(next);
+app.route('/api', api);
+
+app.get('/robots.txt', (c) =>
+  c.text(
+    `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/\nDisallow: /pago/\n\nSitemap: ${EVENT.siteUrl}/sitemap.xml\n`,
+  ),
+);
+
+app.get('/sitemap.xml', (c) =>
+  c.body(
+    `<?xml version="1.0" encoding="UTF-8"?>\n` +
+      `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">` +
+      `<url><loc>${EVENT.siteUrl}/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>` +
+      `</urlset>\n`,
+    200,
+    { 'Content-Type': 'application/xml' },
+  ),
+);
+
+// Everything else is rendered by Angular. On Cloudflare, static files and the prerendered
+// landing page are served by Workers Assets and never reach this handler.
+app.all('*', async (c) => (await angularApp.handle(c.req.raw)) ?? c.text('Página no encontrada.', 404));
+
+app.onError((err, c) => {
+  console.error('[server]', err);
+  return c.text('Algo salió mal.', 500);
 });
 
-/**
- * Start the server if this module is the main entry point, or it is ran via PM2.
- * The server listens on the port defined by the `PORT` environment variable, or defaults to 4000.
- */
-if (isMainModule(import.meta.url) || process.env['pm_id']) {
-  const port = process.env['PORT'] || 4000;
-  app.listen(port, (error) => {
-    if (error) {
-      throw error;
-    }
+/** Request handler used by the Angular CLI (dev server and build). */
+export const reqHandler = createRequestHandler(app.fetch);
 
-    console.log(`Node Express server listening on http://localhost:${port}`);
-  });
-}
-
-/**
- * Request handler used by the Angular CLI (for dev-server and during build) or Firebase Cloud Functions.
- */
-export const reqHandler = createNodeRequestHandler(app);
+/** Cloudflare Workers entry point. */
+export default { fetch: reqHandler };

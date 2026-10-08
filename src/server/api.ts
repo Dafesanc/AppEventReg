@@ -1,5 +1,5 @@
-import { createHash, timingSafeEqual } from 'node:crypto';
-import express, { type NextFunction, type Request, type Response } from 'express';
+import { Hono, type Context, type MiddlewareHandler } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
 import { EVENT, formatTicket } from '../app/shared/event.config';
 import { validateRegistration } from '../app/shared/registration';
 import {
@@ -12,37 +12,49 @@ import {
   toResult,
   type RegistrationRow,
 } from './db';
-import { buildRegistrationsWorkbook } from './excel';
-import { RateLimiter } from './rate-limit';
+import { RateLimiter, clientIp } from './rate-limit';
 
-export const api = express.Router();
-// Parsed here (not in server.ts) so malformed bodies reach this router's JSON error handler.
-api.use(express.json({ limit: '10kb' }));
+/** JSON API mounted at /api. Runs on Cloudflare Workers and on the Angular dev server. */
+export const api = new Hono();
+
+api.use(
+  bodyLimit({
+    maxSize: 10 * 1024,
+    onError: (c) => c.json({ message: 'Solicitud inválida.' }, 413),
+  }),
+);
 
 // Generous on purpose: mobile carriers put many people behind the same IP (CGNAT).
 const publicLimiter = new RateLimiter(30, 10 * 60 * 1000);
 const adminFailures = new RateLimiter(10, 15 * 60 * 1000);
 
-const unavailable = (res: Response) =>
-  res.status(503).json({ message: 'El registro no está disponible en este momento. Escríbenos por WhatsApp.' });
+const invalid = (c: Context) => c.json({ message: 'Solicitud inválida.' }, 400);
+const unavailable = (c: Context) =>
+  c.json({ message: 'El registro no está disponible en este momento. Escríbenos por WhatsApp.' }, 503);
+
+/** Parsed JSON object body, or null when it's missing or malformed. */
+async function jsonBody(c: Context): Promise<Record<string, unknown> | null> {
+  try {
+    const body: unknown = await c.req.json();
+    return body && typeof body === 'object' && !Array.isArray(body) ? (body as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
 
 /* ───────────────────────── Public: pre-registration ───────────────────────── */
 
-api.post('/registrations', publicLimiter.middleware(), async (req, res) => {
-  const body = req.body ?? {};
-  if (body.website) {
-    res.status(400).json({ message: 'Solicitud inválida.' });
-    return;
-  }
+api.post('/registrations', publicLimiter.middleware(), async (c) => {
+  const body = await jsonBody(c);
+  if (!body || body['website']) return invalid(c);
 
   const validation = validateRegistration(body);
   if (!validation.ok) {
-    res.status(422).json({ message: 'Revisa los datos del formulario.', errors: validation.errors });
-    return;
+    return c.json({ message: 'Revisa los datos del formulario.', errors: validation.errors }, 422);
   }
 
   const supabase = db();
-  if (!supabase) return void unavailable(res);
+  if (!supabase) return unavailable(c);
 
   const { fullName, cedula, phone } = validation.data;
   const { data, error } = await supabase
@@ -51,10 +63,7 @@ api.post('/registrations', publicLimiter.middleware(), async (req, res) => {
     .select(COLUMNS)
     .single<RegistrationRow>();
 
-  if (!error) {
-    res.status(201).json(toResult(data, false));
-    return;
-  }
+  if (!error) return c.json(toResult(data, false), 201);
 
   // Unique violation on cédula: let the same person recover their ticket, but don't leak it to others.
   if (error.code === '23505') {
@@ -63,14 +72,11 @@ api.post('/registrations', publicLimiter.middleware(), async (req, res) => {
       .select(COLUMNS)
       .eq('cedula', cedula)
       .maybeSingle<RegistrationRow>();
-    if (existing?.phone === phone) {
-      res.status(200).json(toResult(existing, true));
-      return;
-    }
-    res.status(409).json({
-      message: 'Esta cédula ya está registrada con otro número. Si es tuya, escríbenos por WhatsApp.',
-    });
-    return;
+    if (existing?.phone === phone) return c.json(toResult(existing, true), 200);
+    return c.json(
+      { message: 'Esta cédula ya está registrada con otro número. Si es tuya, escríbenos por WhatsApp.' },
+      409,
+    );
   }
 
   throw error;
@@ -78,72 +84,57 @@ api.post('/registrations', publicLimiter.middleware(), async (req, res) => {
 
 /* ───────────────────────── Admin (password protected) ─────────────────────── */
 
-function sameSecret(a: string, b: string): boolean {
-  const hash = (s: string) => createHash('sha256').update(s).digest();
-  return timingSafeEqual(hash(a), hash(b));
+/** Constant-time comparison of SHA-256 digests (Web Crypto, available on Workers and Node). */
+async function sameSecret(a: string, b: string): Promise<boolean> {
+  const encoder = new TextEncoder();
+  const [x, y] = await Promise.all(
+    [a, b].map(async (s) => new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(s)))),
+  );
+  let diff = 0;
+  for (let i = 0; i < x.length; i++) diff |= x[i] ^ y[i];
+  return diff === 0;
 }
 
-function requireAdmin(req: Request, res: Response, next: NextFunction) {
+const requireAdmin: MiddlewareHandler = async (c, next) => {
   const expected = process.env['ADMIN_PASSWORD'];
-  if (!expected) {
-    res.status(503).json({ message: 'Configura ADMIN_PASSWORD en el servidor.' });
-    return;
-  }
+  if (!expected) return c.json({ message: 'Configura ADMIN_PASSWORD en el servidor.' }, 503);
 
-  const ip = req.ip ?? 'unknown';
+  const ip = clientIp(c);
   if (adminFailures.isBlocked(ip)) {
-    res.status(429).json({ message: 'Demasiados intentos fallidos. Espera 15 minutos.' });
-    return;
+    return c.json({ message: 'Demasiados intentos fallidos. Espera 15 minutos.' }, 429);
   }
 
-  const header = req.get('authorization') ?? '';
+  const header = c.req.header('authorization') ?? '';
   const given = header.startsWith('Bearer ') ? header.slice(7) : '';
-  if (!sameSecret(given, expected)) {
+  if (!(await sameSecret(given, expected))) {
     adminFailures.hit(ip);
-    res.status(401).json({ message: 'Contraseña incorrecta.' });
-    return;
-  }
-  next();
-}
-
-api.use('/admin', requireAdmin, (_req, res, next) => {
-  res.set('Cache-Control', 'no-store');
-  next();
-});
-
-api.get('/admin/registrations', async (_req, res) => {
-  const supabase = db();
-  if (!supabase) return void unavailable(res);
-  const rows = await fetchAllRegistrations(supabase);
-  res.json(rows.map(toAdmin));
-});
-
-api.get('/admin/export', async (_req, res) => {
-  const supabase = db();
-  if (!supabase) return void unavailable(res);
-  const rows = await fetchAllRegistrations(supabase);
-  const file = await buildRegistrationsWorkbook(rows.map(toAdmin));
-  const date = new Date(Date.now() - 5 * 3600_000).toISOString().slice(0, 10);
-  res
-    .type('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    .attachment(`${EVENT.name.toLowerCase()}-registros-${date}.xlsx`)
-    .send(file);
-});
-
-api.patch('/admin/registrations/:id', async (req, res) => {
-  const supabase = db();
-  if (!supabase) return void unavailable(res);
-  const id = String(req.params['id']);
-  if (!UUID_PATTERN.test(id) || typeof req.body?.paid !== 'boolean') {
-    res.status(400).json({ message: 'Solicitud inválida.' });
-    return;
+    return c.json({ message: 'Contraseña incorrecta.' }, 401);
   }
 
-  const paid: boolean = req.body.paid;
+  c.header('Cache-Control', 'no-store');
+  return next();
+};
+
+api.use('/admin/*', requireAdmin);
+
+api.get('/admin/registrations', async (c) => {
+  const supabase = db();
+  if (!supabase) return unavailable(c);
+  const rows = await fetchAllRegistrations(supabase);
+  return c.json(rows.map(toAdmin));
+});
+
+api.patch('/admin/registrations/:id', async (c) => {
+  const supabase = db();
+  if (!supabase) return unavailable(c);
+  const id = c.req.param('id');
+  const body = await jsonBody(c);
+  if (!UUID_PATTERN.test(id) || typeof body?.['paid'] !== 'boolean') return invalid(c);
+
   const { data, error } = await supabase
     .from(TABLE)
     .update(
-      paid
+      body['paid']
         ? { payment_status: 'paid', payment_method: 'transfer', paid_at: new Date().toISOString() }
         : { payment_status: 'pending', payment_method: null, payment_reference: null, paid_at: null },
     )
@@ -151,11 +142,8 @@ api.patch('/admin/registrations/:id', async (req, res) => {
     .select(COLUMNS)
     .maybeSingle<RegistrationRow>();
   if (error) throw error;
-  if (!data) {
-    res.status(404).json({ message: 'Registro no encontrado.' });
-    return;
-  }
-  res.json(toAdmin(data));
+  if (!data) return c.json({ message: 'Registro no encontrado.' }, 404);
+  return c.json(toAdmin(data));
 });
 
 /* ───────────────────────── Card payments (PayPhone) ───────────────────────── */
@@ -182,35 +170,26 @@ async function payphone<T>(path: string, token: string, body: unknown): Promise<
   return response.json() as Promise<T>;
 }
 
-api.post('/payments/payphone/prepare', publicLimiter.middleware(), async (req, res) => {
+api.post('/payments/payphone/prepare', publicLimiter.middleware(), async (c) => {
   const credentials = payphoneCredentials();
   const supabase = db();
   if (!credentials || !supabase) {
-    res.status(503).json({ message: 'El pago con tarjeta no está disponible. Paga por transferencia.' });
-    return;
+    return c.json({ message: 'El pago con tarjeta no está disponible. Paga por transferencia.' }, 503);
   }
 
-  const registrationId = String(req.body?.registrationId ?? '');
-  if (!UUID_PATTERN.test(registrationId)) {
-    res.status(400).json({ message: 'Solicitud inválida.' });
-    return;
-  }
+  const registrationId = String((await jsonBody(c))?.['registrationId'] ?? '');
+  if (!UUID_PATTERN.test(registrationId)) return invalid(c);
 
   const { data: row } = await supabase
     .from(TABLE)
     .select(COLUMNS)
     .eq('id', registrationId)
     .maybeSingle<RegistrationRow>();
-  if (!row) {
-    res.status(404).json({ message: 'No encontramos tu pre-registro.' });
-    return;
-  }
-  if (row.payment_status === 'paid') {
-    res.status(409).json({ message: 'Esta entrada ya está pagada.' });
-    return;
-  }
+  if (!row) return c.json({ message: 'No encontramos tu pre-registro.' }, 404);
+  if (row.payment_status === 'paid') return c.json({ message: 'Esta entrada ya está pagada.' }, 409);
 
-  const siteUrl = process.env['SITE_URL'] ?? `${req.protocol}://${req.get('host')}`;
+  // The visitor's own origin (workers.dev or custom domain) — must be the domain registered in PayPhone.
+  const origin = new URL(c.req.url).origin;
   const prepared = await payphone<{ payWithCard: string }>('Prepare', credentials.token, {
     amount: COVER_CENTS,
     amountWithoutTax: COVER_CENTS,
@@ -221,12 +200,12 @@ api.post('/payments/payphone/prepare', publicLimiter.middleware(), async (req, r
     reference: `Entrada ${EVENT.name} ${formatTicket(row.ticket_number)}`,
     phoneNumber: row.phone,
     documentId: row.cedula,
-    responseUrl: `${siteUrl}/pago/confirmacion`,
-    cancellationUrl: `${siteUrl}/pago/confirmacion`,
+    responseUrl: `${origin}/pago/confirmacion`,
+    cancellationUrl: `${origin}/pago/confirmacion`,
     lang: 'es',
   });
 
-  res.json({ url: prepared.payWithCard });
+  return c.json({ url: prepared.payWithCard });
 });
 
 interface PayphoneConfirmation {
@@ -237,30 +216,24 @@ interface PayphoneConfirmation {
   amount: number;
 }
 
-api.post('/payments/payphone/confirm', publicLimiter.middleware(), async (req, res) => {
+api.post('/payments/payphone/confirm', publicLimiter.middleware(), async (c) => {
   const credentials = payphoneCredentials();
   const supabase = db();
-  if (!credentials || !supabase) return void unavailable(res);
+  if (!credentials || !supabase) return unavailable(c);
 
-  const id = Number(req.body?.id);
-  const clientTxId = String(req.body?.clientTxId ?? '');
-  if (!Number.isSafeInteger(id) || id <= 0 || !CLIENT_TX_PATTERN.test(clientTxId)) {
-    res.status(400).json({ message: 'Solicitud inválida.' });
-    return;
-  }
+  const body = await jsonBody(c);
+  const id = Number(body?.['id']);
+  const clientTxId = String(body?.['clientTxId'] ?? '');
+  if (!Number.isSafeInteger(id) || id <= 0 || !CLIENT_TX_PATTERN.test(clientTxId)) return invalid(c);
 
   // PayPhone reverses the charge if this call doesn't happen within 5 minutes of payment.
   const tx = await payphone<PayphoneConfirmation>('V2/Confirm', credentials.token, { id, clientTxId });
   const registrationId = CLIENT_TX_PATTERN.exec(tx.clientTransactionId ?? '')?.[1];
 
-  if (tx.statusCode !== 3 || !registrationId) {
-    res.json({ status: 'cancelled' });
-    return;
-  }
+  if (tx.statusCode !== 3 || !registrationId) return c.json({ status: 'cancelled' });
   if (tx.amount !== COVER_CENTS) {
     console.error('PayPhone amount mismatch', tx);
-    res.status(409).json({ message: 'El monto pagado no coincide. Escríbenos por WhatsApp.' });
-    return;
+    return c.json({ message: 'El monto pagado no coincide. Escríbenos por WhatsApp.' }, 409);
   }
 
   const { data: row, error } = await supabase
@@ -277,25 +250,18 @@ api.post('/payments/payphone/confirm', publicLimiter.middleware(), async (req, r
   if (error) throw error;
   if (!row) {
     console.error('PayPhone payment for unknown registration', tx);
-    res.status(404).json({ message: 'Pago recibido pero no encontramos tu registro. Escríbenos por WhatsApp.' });
-    return;
+    return c.json({ message: 'Pago recibido pero no encontramos tu registro. Escríbenos por WhatsApp.' }, 404);
   }
 
-  res.json({ status: 'approved', registration: toResult(row, true) });
+  return c.json({ status: 'approved', registration: toResult(row, true) });
 });
 
 /* ───────────────────────── Errors ─────────────────────────────────────────── */
 
-api.use((_req, res) => {
-  res.status(404).json({ message: 'No encontrado.' });
-});
+// Registered last so unknown /api/* paths get JSON instead of falling through to Angular.
+api.all('*', (c) => c.json({ message: 'No encontrado.' }, 404));
 
-api.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
-  const status = (err as { status?: number }).status;
-  if (status && status >= 400 && status < 500) {
-    res.status(status).json({ message: 'Solicitud inválida.' });
-    return;
-  }
+api.onError((err, c) => {
   console.error('[api]', err);
-  res.status(500).json({ message: 'Algo salió mal. Intenta de nuevo en un momento.' });
+  return c.json({ message: 'Algo salió mal. Intenta de nuevo en un momento.' }, 500);
 });

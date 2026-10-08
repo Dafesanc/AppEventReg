@@ -1,6 +1,19 @@
-import type { NextFunction, Request, Response } from 'express';
+import type { Context, MiddlewareHandler } from 'hono';
 
-/** Minimal in-memory fixed-window limiter. Good enough for a single Node instance. */
+/** Real client IP on Cloudflare; falls back to the proxy header (or "local") on the dev server. */
+export function clientIp(c: Context): string {
+  return (
+    c.req.header('cf-connecting-ip') ??
+    c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ??
+    'local'
+  );
+}
+
+/**
+ * Minimal in-memory fixed-window limiter. On Cloudflare each Worker instance keeps its own
+ * counters, so this is best-effort throttling (enough to slow down a single abusive client),
+ * not a global quota.
+ */
 export class RateLimiter {
   private readonly hits = new Map<string, { count: number; resetAt: number }>();
 
@@ -27,10 +40,10 @@ export class RateLimiter {
     return !!entry && entry.resetAt > Date.now() && entry.count >= this.max;
   }
 
-  middleware() {
-    return (req: Request, res: Response, next: NextFunction) => {
-      if (this.hit(req.ip ?? 'unknown')) return next();
-      res.status(429).json({ message: 'Demasiados intentos. Espera unos minutos e intenta de nuevo.' });
+  middleware(): MiddlewareHandler {
+    return async (c, next) => {
+      if (this.hit(clientIp(c))) return next();
+      return c.json({ message: 'Demasiados intentos. Espera unos minutos e intenta de nuevo.' }, 429);
     };
   }
 

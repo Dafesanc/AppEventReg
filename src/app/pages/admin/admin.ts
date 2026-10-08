@@ -7,6 +7,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
 import { Icon } from '../../components/icon/icon';
 import { apiErrorMessage } from '../../core/registration-api';
 import { Seo } from '../../core/seo';
@@ -142,26 +143,27 @@ export class Admin {
       });
   }
 
-  protected download(): void {
+  /** Fetches fresh rows and builds the spreadsheet in the browser (ExcelJS is loaded on demand). */
+  protected async download(): Promise<void> {
     this.downloading.set(true);
-    this.http
-      .get('/api/admin/export', { headers: this.headers(), responseType: 'blob', observe: 'response' })
-      .subscribe({
-        next: (response) => {
-          this.downloading.set(false);
-          const name =
-            /filename="?([^";]+)"?/.exec(response.headers.get('content-disposition') ?? '')?.[1] ??
-            'registros.xlsx';
-          const url = URL.createObjectURL(response.body!);
-          const link = Object.assign(document.createElement('a'), { href: url, download: name });
-          link.click();
-          setTimeout(() => URL.revokeObjectURL(url), 1000);
-        },
-        error: () => {
-          this.downloading.set(false);
-          this.error.set('No se pudo generar el Excel. Intenta de nuevo.');
-        },
-      });
+    this.error.set(null);
+    try {
+      const [rows, excel] = await Promise.all([
+        firstValueFrom(
+          this.http.get<AdminRegistration[]>('/api/admin/registrations', { headers: this.headers() }),
+        ),
+        loadExcel(),
+      ]);
+      this.rows.set(rows);
+      const url = URL.createObjectURL(await excel.buildRegistrationsWorkbook(rows));
+      const link = Object.assign(document.createElement('a'), { href: url, download: excel.exportFileName() });
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch {
+      this.error.set('No se pudo generar el Excel. Intenta de nuevo.');
+    } finally {
+      this.downloading.set(false);
+    }
   }
 
   protected setQuery(event: Event): void {
@@ -192,6 +194,21 @@ export class Admin {
     this.loading.set(false);
     if (err.status === 401) this.logout();
     this.error.set(apiErrorMessage(err));
+  }
+}
+
+/** Build-time constant set by the Angular CLI: true in the server bundle, false in the browser. */
+declare const ngServerMode: boolean;
+
+/**
+ * ExcelJS only works in the browser build. The constant condition lets the bundler drop this
+ * import from the server (Cloudflare Worker) bundle entirely.
+ */
+function loadExcel() {
+  if (ngServerMode) {
+    return Promise.reject(new Error('El Excel solo se genera en el navegador.'));
+  } else {
+    return import('./excel');
   }
 }
 

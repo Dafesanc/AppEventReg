@@ -1,5 +1,5 @@
 /**
- * Registration model and validation shared by the browser form and the Express API.
+ * Registration model and validation shared by the browser form and the server API.
  * Keep this file free of Angular imports so the server can use it too.
  */
 

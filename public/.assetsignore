@@ -1,0 +1,4 @@
+# Files in public/ that are not uploaded to Cloudflare.
+# Design references only: the site uses the optimized copies in img/.
+inspo/
+logo/

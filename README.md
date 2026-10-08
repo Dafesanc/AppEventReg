@@ -3,7 +3,7 @@
 Landing page de la fiesta **Euphoria** con formulario de pre-registro, panel para organizadores
 con exportación a Excel, pago por transferencia vía WhatsApp y pago con tarjeta opcional (PayPhone).
 
-**Stack:** Angular 21 (SSR + prerender) · Tailwind CSS 4 · Express · Supabase (Postgres).
+**Stack:** Angular 21 (SSR + prerender) · Tailwind CSS 4 · Hono · Supabase (Postgres) · Cloudflare Workers.
 
 ## Puesta en marcha
 
@@ -36,23 +36,36 @@ el servidor (con la clave secreta) la lee o escribe.
 ## Pago con tarjeta (PayPhone, opcional)
 
 1. Crea tu cuenta en **Payphone Business** y luego una aplicación tipo *Web* en **Payphone Developer**.
-   Dominio: tu `SITE_URL`. URL de respuesta: `https://TU-DOMINIO/pago/confirmacion`.
-2. Copia el *Token* y el *StoreId* en `PAYPHONE_TOKEN` y `PAYPHONE_STORE_ID`.
-3. Pon `cardPaymentsEnabled: true` en `event.config.ts` y vuelve a hacer build.
+   Dominio: el de tu sitio. URL de respuesta: `https://TU-DOMINIO/pago/confirmacion`.
+2. Guarda el *Token* y el *StoreId* como secrets: `npx wrangler secret put PAYPHONE_TOKEN` y `PAYPHONE_STORE_ID`
+   (y en tu `.env` para probar en local).
+3. Pon `cardPaymentsEnabled: true` en `event.config.ts` y vuelve a desplegar.
 
 Al confirmarse el pago, el registro se marca solo como pagado (método “Tarjeta”).
 
-## Producción
+## Despliegue en Cloudflare Workers
+
+La landing prerenderizada y los archivos estáticos se sirven desde la CDN de Cloudflare; el Worker
+(`src/server.ts`) solo atiende la API, `robots.txt`, `sitemap.xml` y las rutas `/admin` y `/pago`.
+Entra en el plan gratuito (10 ms de CPU por request: la landing no consume CPU del Worker).
+
+Primera vez:
 
 ```bash
-npm run build
-npm run serve:ssr:AppEventReg   # node dist/AppEventReg/server/server.mjs (puerto PORT o 4000)
+npx wrangler login                              # abre el navegador para autorizar tu cuenta
+npx wrangler secret put SUPABASE_URL
+npx wrangler secret put SUPABASE_SECRET_KEY
+npx wrangler secret put ADMIN_PASSWORD
+npm run deploy                                  # ng build + wrangler deploy
 ```
 
-Necesita un hosting con Node.js (Railway, Render, Fly.io, un VPS…) con las variables de `.env.example`.
-`SITE_URL` debe ser el dominio público: se usa para canonical/Open Graph, `robots.txt`, `sitemap.xml`,
-el retorno de PayPhone y como host permitido del SSR (otros dominios: `NG_ALLOWED_HOSTS`).
-Actualiza también `siteUrl` en `event.config.ts`, que es lo que queda en el HTML prerenderizado.
+La app queda en `https://euphoria.<tu-subdominio>.workers.dev`. Después:
+1. Pon esa URL (o tu dominio propio) en `siteUrl` de `event.config.ts` — es la que va en el canonical,
+   Open Graph, `robots.txt` y `sitemap.xml` — y vuelve a ejecutar `npm run deploy`.
+2. Con dominio propio: Cloudflare → Workers & Pages → `euphoria` → Settings → Domains & Routes → *Add Custom Domain*.
+
+Archivos de Cloudflare: [`wrangler.jsonc`](wrangler.jsonc), [`public/_headers`](public/_headers) (caché y
+headers de los estáticos) y [`public/.assetsignore`](public/.assetsignore) (lo que no se publica: `inspo/`, `logo/`).
 
 ## Scripts
 
@@ -60,6 +73,8 @@ Actualiza también `siteUrl` en `event.config.ts`, que es lo que queda en el HTM
 | --- | --- |
 | `npm start` | Servidor de desarrollo con API (lee `.env`) |
 | `npm run build` | Build de producción + prerender |
+| `npm run preview` | Build + Worker local en el runtime real de Cloudflare (`wrangler dev`, lee `.env`) |
+| `npm run deploy` | Build + publicación en Cloudflare |
 | `npm test` | Tests unitarios (validación de cédula, celular y nombre) |
 
 ## Estructura
@@ -68,10 +83,11 @@ Actualiza también `siteUrl` en `event.config.ts`, que es lo que queda en el HTM
 src/
   app/
     shared/        config del evento + validación compartida cliente/servidor
-    pages/         home (landing), admin, payment-result
+    pages/         home (landing), admin (+ Excel en el navegador), payment-result
     components/    formulario, countdown, íconos SVG
     core/          SEO (meta + JSON-LD), cliente de la API
-  server/          API Express: registro, admin + Excel, PayPhone
-  server.ts        servidor SSR, robots.txt, sitemap.xml
+  server/          API Hono: registro, admin, PayPhone
+  server.ts        Worker / SSR, robots.txt, sitemap.xml
 supabase/schema.sql
+wrangler.jsonc     configuración de Cloudflare
 ```

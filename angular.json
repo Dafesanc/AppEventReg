@@ -33,8 +33,10 @@
               "allowedHosts": []
             },
             "ssr": {
-              "entry": "src/server.ts"
-            }
+              "entry": "src/server.ts",
+              "experimentalPlatform": "neutral"
+            },
+            "allowedCommonJsDependencies": ["exceljs"]
           },
           "configurations": {
             "production": {
