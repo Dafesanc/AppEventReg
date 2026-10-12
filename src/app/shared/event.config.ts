@@ -3,9 +3,11 @@
  * WhatsApp messages, the Excel export and the payment gateway.
  */
 export const EVENT = {
-  name: 'Euphoria',
-  slogan: 'Juramos portarnos bien…',
-  tagline: 'Una noche. Cero excusas.',
+  name: 'Spooky Night',
+  /** Used in the page title and description ("Spooky Night, la fiesta de Halloween en…"). */
+  kind: 'fiesta de Halloween',
+  slogan: 'Nada es lo que parece…',
+  tagline: 'Una noche de miedo. Cero excusas.',
 
   /** ISO 8601 with Ecuador offset (UTC-5, no DST). Drives the countdown and SEO. */
   startDate: '2026-10-17T21:00:00-05:00',
@@ -37,13 +39,13 @@ export const EVENT = {
   whatsapp: '593983120430',
 
   /** Public URL where the site is deployed (no trailing slash). Used for canonical/OG/sitemap. */
-  siteUrl: 'https://euphoria.example.com',
+  siteUrl: 'https://euphoria.dafesanc12.workers.dev',
 
   /** Shows the "pay with card" button. Also requires PAYPHONE_* env vars on the server. */
   cardPaymentsEnabled: false,
 
-  /** Prefix for the human-readable ticket code (EUP-0042). */
-  ticketPrefix: 'EUP',
+  /** Prefix for the human-readable ticket code (SPK-0042). The number comes from the database. */
+  ticketPrefix: 'SPK',
 } as const;
 
 export const coverLabel = `$${EVENT.cover.amount}`;
@@ -61,7 +63,7 @@ export const dateLabels = {
 };
 
 export const eventDescription =
-  `${EVENT.name}, la fiesta en ${EVENT.venue.name} (${EVENT.venue.city}) con ${EVENT.dj}. ` +
+  `${EVENT.name}, la ${EVENT.kind} en ${EVENT.venue.name} (${EVENT.venue.city}) con ${EVENT.dj}. ` +
   `${dateLabels.long}, puertas ${EVENT.doorsLabel}. Cover ${coverLabel} con ` +
   `${EVENT.cover.perk.toLowerCase()}. Pre-regístrate aquí.`;
 
@@ -70,6 +72,14 @@ export const instagramUrl = (user: string) => `https://www.instagram.com/${user}
 export function whatsappUrl(text: string): string {
   return `https://wa.me/${EVENT.whatsapp}?text=${encodeURIComponent(text)}`;
 }
+
+/** "Spooky Night" → "spooky-night" (file names). */
+export const eventSlug = EVENT.name
+  .toLowerCase()
+  .normalize('NFD')
+  .replace(/[̀-ͯ]/g, '')
+  .replace(/[^a-z0-9]+/g, '-')
+  .replace(/^-|-$/g, '');
 
 export function formatTicket(ticketNumber: number): string {
   return `${EVENT.ticketPrefix}-${String(ticketNumber).padStart(4, '0')}`;

@@ -29,7 +29,7 @@ const UNITS = [
         @for (unit of units(); track unit.label) {
           <li class="card flex w-[4.5rem] flex-col items-center py-3 sm:w-24 sm:py-4">
             <span class="font-display text-3xl text-white tabular-nums sm:text-5xl">{{ unit.value }}</span>
-            <span class="mt-1 font-mono text-[0.65rem] tracking-[0.2em] text-mist uppercase">{{ unit.label }}</span>
+            <span class="mt-1 font-mono text-[0.65rem] tracking-[0.2em] text-muted uppercase">{{ unit.label }}</span>
           </li>
         }
       </ol>

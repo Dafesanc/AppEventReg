@@ -1,8 +1,8 @@
 <main class="grid min-h-svh place-items-center px-4 py-12">
-  <div class="card glow-neon w-full max-w-md p-8 text-center sm:p-10" aria-live="polite">
+  <div class="card glow-brand w-full max-w-md p-8 text-center sm:p-10" aria-live="polite">
     @switch (status()) {
       @case ('checking') {
-        <app-icon name="refresh" class="mx-auto size-12 animate-spin text-neon" />
+        <app-icon name="refresh" class="mx-auto size-12 animate-spin text-brand" />
         <h1 class="mt-6 font-display text-3xl text-white uppercase">Confirmando tu pago…</h1>
         <p class="mt-2 text-sm">No cierres esta página.</p>
       }
@@ -13,7 +13,7 @@
         <h1 class="mt-6 font-display text-4xl text-white uppercase">¡Pago confirmado!</h1>
         @if (registration(); as r) {
           <p class="mt-3">Tu entrada está lista, {{ r.fullName.split(' ')[0] }}.</p>
-          <p class="mt-5 inline-block rounded-2xl border border-dashed border-rose/60 bg-ink-2 px-6 py-3 font-mono text-2xl tracking-[0.2em] text-white">
+          <p class="mt-5 inline-block rounded-2xl border border-dashed border-brand-soft/60 bg-ink-2 px-6 py-3 font-mono text-2xl tracking-[0.2em] text-white">
             {{ r.ticket }}
           </p>
         }
@@ -21,7 +21,7 @@
         <a routerLink="/" class="btn-primary mt-8 w-full">Volver al inicio</a>
       }
       @default {
-        <span class="mx-auto grid size-16 place-items-center rounded-full bg-neon/15 text-neon">
+        <span class="mx-auto grid size-16 place-items-center rounded-full bg-brand/15 text-brand">
           <app-icon name="alert" class="size-8" />
         </span>
         <h1 class="mt-6 font-display text-3xl text-white uppercase">

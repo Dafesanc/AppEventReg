@@ -1,6 +1,6 @@
 @if (registration(); as r) {
   <div class="text-center motion-safe:animate-rise" role="status" aria-live="polite">
-    <span class="glow-neon mx-auto grid size-16 place-items-center rounded-full text-neon">
+    <span class="glow-brand mx-auto grid size-16 place-items-center rounded-full text-brand">
       <app-icon name="check" class="size-8" />
     </span>
 
@@ -16,11 +16,11 @@
     <button
       type="button"
       (click)="copyTicket()"
-      class="mt-2 inline-flex items-center gap-3 rounded-2xl border border-dashed border-rose/60 bg-ink-2 px-6 py-3 font-mono text-2xl tracking-[0.2em] text-white transition hover:border-neon"
+      class="mt-2 inline-flex items-center gap-3 rounded-2xl border border-dashed border-brand-soft/60 bg-ink-2 px-6 py-3 font-mono text-2xl tracking-[0.2em] text-white transition hover:border-brand"
       [attr.aria-label]="'Copiar código ' + r.ticket"
     >
       {{ r.ticket }}
-      <app-icon [name]="copied() ? 'check' : 'copy'" class="size-5 text-rose" />
+      <app-icon [name]="copied() ? 'check' : 'copy'" class="size-5 text-brand-soft" />
     </button>
 
     @if (r.paid) {
@@ -42,24 +42,24 @@
         <app-icon name="whatsapp" class="size-5" />
         Pagar por transferencia
       </a>
-      <p class="mt-2 text-xs text-mist">Se abre WhatsApp con tus datos listos para enviar.</p>
+      <p class="mt-2 text-xs text-muted">Se abre WhatsApp con tus datos listos para enviar.</p>
 
       @if (event.cardPaymentsEnabled) {
         <button type="button" class="btn-ghost mt-5 w-full" (click)="payWithCard()" [disabled]="paying()">
           <app-icon name="card" class="size-5" />
           {{ paying() ? 'Abriendo pago seguro…' : 'Pagar con tarjeta' }}
         </button>
-        <p class="mt-2 text-xs text-mist">Débito o crédito · procesado por PayPhone</p>
+        <p class="mt-2 text-xs text-muted">Débito o crédito · procesado por PayPhone</p>
       }
     }
 
     @if (serverError(); as message) {
-      <p class="mt-5 rounded-2xl border border-neon/40 bg-neon/10 px-4 py-3 text-sm text-white" role="alert">{{ message }}</p>
+      <p class="mt-5 rounded-2xl border border-brand/40 bg-brand/10 px-4 py-3 text-sm text-white" role="alert">{{ message }}</p>
     }
 
     <button
       type="button"
-      class="mt-7 text-xs text-mist underline underline-offset-4 transition hover:text-white"
+      class="mt-7 text-xs text-muted underline underline-offset-4 transition hover:text-white"
       (click)="registerAnother()"
     >
       Registrar a otra persona
@@ -71,7 +71,7 @@
       <div>
         <label [for]="f.name" class="mb-2 block text-sm font-semibold text-white">{{ f.label }}</label>
         <div class="relative">
-          <app-icon [name]="f.icon" class="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-mist" />
+          <app-icon [name]="f.icon" class="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-muted" />
           <input
             [id]="f.name"
             [formControlName]="f.name"
@@ -87,7 +87,7 @@
           />
         </div>
         @if (error(f.name); as message) {
-          <p [id]="f.name + '-error'" class="mt-2 flex items-start gap-1.5 text-sm text-rose">
+          <p [id]="f.name + '-error'" class="mt-2 flex items-start gap-1.5 text-sm text-brand-soft">
             <app-icon name="alert" class="mt-0.5 size-4" />
             {{ message }}
           </p>
@@ -101,7 +101,7 @@
     </div>
 
     @if (serverError(); as message) {
-      <p class="rounded-2xl border border-neon/40 bg-neon/10 px-4 py-3 text-sm text-white" role="alert">{{ message }}</p>
+      <p class="rounded-2xl border border-brand/40 bg-brand/10 px-4 py-3 text-sm text-white" role="alert">{{ message }}</p>
     }
 
     <button type="submit" class="btn-primary w-full py-4 text-base" [disabled]="submitting()">
@@ -113,7 +113,7 @@
       }
     </button>
 
-    <p class="text-center text-xs leading-relaxed text-mist">
+    <p class="text-center text-xs leading-relaxed text-muted">
       <app-icon name="lock" class="mr-1 inline size-3.5 align-[-2px]" />
       Tus datos solo se usan para gestionar tu entrada a {{ event.name }}.
     </p>

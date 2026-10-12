@@ -1,5 +1,5 @@
 import { Workbook } from 'exceljs';
-import { EVENT } from '../../shared/event.config';
+import { EVENT, eventSlug } from '../../shared/event.config';
 import { type AdminRegistration, formatLocalPhone } from '../../shared/registration';
 
 /*
@@ -17,7 +17,7 @@ function ecuadorDate(iso: string | null): Date | null {
 
 export function exportFileName(now = new Date()): string {
   const date = new Date(now.getTime() + ECUADOR_OFFSET_MS).toISOString().slice(0, 10);
-  return `${EVENT.name.toLowerCase()}-registros-${date}.xlsx`;
+  return `${eventSlug}-registros-${date}.xlsx`;
 }
 
 export async function buildRegistrationsWorkbook(rows: AdminRegistration[]): Promise<Blob> {

@@ -123,10 +123,10 @@ export class RegistrationForm {
     const r = this.registration();
     if (!r) return '';
     return whatsappUrl(
-      `¡Hola! Me pre-registré para *${EVENT.name.toUpperCase()}* ✨\n\n` +
+      `¡Hola! Me pre-registré para *${EVENT.name.toUpperCase()}* 🎃\n\n` +
         `Nombre: ${r.fullName}\n` +
         `Código: ${r.ticket}\n\n` +
-        `Quiero pagar mi entrada (cover ${coverLabel}) por transferencia. ¿Me pasas los datos? 🙌`,
+        `Quiero pagar mi entrada (cover ${coverLabel}) por transferencia. ¿Me pasas los datos? 🦇`,
     );
   });
 

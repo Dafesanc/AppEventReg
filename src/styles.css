@@ -1,19 +1,24 @@
 @import "tailwindcss";
 
+/*
+ * Theme tokens use role names (brand, accent, fg…) so a new event theme only needs new values here.
+ * Current theme: Spooky Night — blood red, candle/pumpkin amber and bone on near-black.
+ */
 @theme {
-  --color-ink: #050309;
-  --color-ink-2: #0d0717;
-  --color-plum: #1b0d2e;
-  --color-neon: #ff3ec9;
-  --color-rose: #ff7ad1;
-  --color-violet: #a855f7;
-  --color-indigo: #6a4bff;
-  --color-haze: #cdbfe6;
-  --color-mist: #9d8fb8;
+  --color-ink: #070405;
+  --color-ink-2: #110a0b;
+  --color-tint: #2a0a0e;
+  --color-brand: #e3121b;
+  --color-brand-soft: #ff4d4f;
+  --color-accent: #ff7a18;
+  --color-accent-deep: #8b0a12;
+  --color-fg: #d8cec6;
+  --color-muted: #9a8f8a;
+  --color-bone: #f3ece4;
   --color-whatsapp: #25d366;
 
   --font-display: "Anton", "Impact", "Arial Narrow", sans-serif;
-  --font-script: "Kaushan Script", "Brush Script MT", cursive;
+  --font-accent: "Creepster", "Chiller", cursive;
   --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Space Mono", ui-monospace, monospace;
 
@@ -22,6 +27,9 @@
   --animate-marquee: marquee 38s linear infinite;
   --animate-flicker: flicker 6s linear infinite;
   --animate-rise: rise 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-fog: fog 60s linear infinite;
+  --animate-swing: swing 4s ease-in-out infinite alternate;
+  --animate-bob: bob 3s ease-in-out infinite alternate;
 
   @keyframes drift {
     from { transform: translate3d(-6%, -4%, 0) scale(1); }
@@ -38,6 +46,27 @@
     from { opacity: 0; transform: translateY(24px); }
     to { opacity: 1; transform: none; }
   }
+  @keyframes fog {
+    to { transform: translate3d(-50%, 0, 0); }
+  }
+  @keyframes swing {
+    from { transform: rotate(-5deg); }
+    to { transform: rotate(5deg); }
+  }
+  @keyframes bob {
+    from { transform: translateY(0); }
+    to { transform: translateY(12px); }
+  }
+}
+
+/* Used from inline styles (per-bat timing), so they live outside @theme where Tailwind can't prune them. */
+@keyframes bat-fly {
+  from { transform: translate3d(-12vw, 0, 0); }
+  to { transform: translate3d(112vw, -10vh, 0); }
+}
+@keyframes bat-flap {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(0.35); }
 }
 
 @layer base {
@@ -47,32 +76,32 @@
     -webkit-tap-highlight-color: transparent;
   }
   body {
-    @apply bg-ink font-sans text-haze antialiased;
+    @apply bg-ink font-sans text-fg antialiased;
     overflow-x: clip;
   }
   ::selection {
-    @apply bg-neon text-ink;
+    @apply bg-brand text-white;
   }
   :focus-visible {
-    @apply outline-2 outline-offset-2 outline-rose;
+    @apply outline-2 outline-offset-2 outline-brand-soft;
   }
 }
 
-/* Pink → violet → indigo, same sweep as the logo lettering. */
+/* Candle flame → blood, like the light in the flyer. */
 @utility text-gradient {
-  background: linear-gradient(100deg, #ff7ad1 0%, #ff3ec9 35%, #a855f7 70%, #6a4bff 100%);
+  background: linear-gradient(100deg, #ffc861 0%, #ff7a18 30%, #e3121b 70%, #b30d17 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 
-/* Brushed silver like the inspo "COMBO" headings. */
-@utility text-chrome {
-  background: linear-gradient(180deg, #ffffff 0%, #f1e9ff 40%, #9d8fb8 52%, #ffffff 75%, #d9ccf2 100%);
+/* Section titles: bone-white with a blood-red halo. */
+@utility text-title {
+  background: linear-gradient(180deg, #ffffff 0%, #f3ece4 45%, #a39a94 55%, #f3ece4 80%, #c9bfb6 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  filter: drop-shadow(0 0 18px rgb(255 62 201 / 0.35));
+  filter: drop-shadow(0 0 18px rgb(227 18 27 / 0.45));
 }
 
 /* Film grain to soften gradient banding. */
@@ -80,15 +109,23 @@
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-@utility glow-neon {
+@utility glow-brand {
   box-shadow:
-    0 0 0 1px rgb(255 62 201 / 0.7),
-    0 0 18px rgb(255 62 201 / 0.45),
-    inset 0 0 22px rgb(255 62 201 / 0.18);
+    0 0 0 1px rgb(227 18 27 / 0.75),
+    0 0 18px rgb(227 18 27 / 0.45),
+    inset 0 0 22px rgb(227 18 27 / 0.18);
+}
+
+/* Die-cut sticker look: bone outline + soft drop shadow around any SVG/image. */
+@utility sticker {
+  filter:
+    drop-shadow(2px 0 0 var(--color-bone)) drop-shadow(-2px 0 0 var(--color-bone))
+    drop-shadow(0 2px 0 var(--color-bone)) drop-shadow(0 -2px 0 var(--color-bone))
+    drop-shadow(0 10px 14px rgb(0 0 0 / 0.6));
 }
 
 @utility eyebrow {
-  @apply font-mono text-xs tracking-[0.35em] uppercase text-rose;
+  @apply font-mono text-xs tracking-[0.35em] uppercase text-brand-soft;
 }
 
 @utility card {
@@ -101,20 +138,20 @@
 
 @utility btn-primary {
   @apply btn text-white;
-  background: linear-gradient(100deg, #ff3ec9, #a855f7 60%, #6a4bff);
-  box-shadow: 0 10px 40px -10px rgb(255 62 201 / 0.7);
+  background: linear-gradient(100deg, #ff3b3b, #e3121b 50%, #8b0a12);
+  box-shadow: 0 10px 40px -10px rgb(227 18 27 / 0.75);
   &:hover:not(:disabled) {
     transform: translateY(-2px);
-    box-shadow: 0 16px 50px -10px rgb(255 62 201 / 0.9);
+    box-shadow: 0 16px 50px -10px rgb(227 18 27 / 0.95);
   }
 }
 
 @utility btn-ghost {
-  @apply btn border border-white/20 text-white hover:border-rose hover:bg-white/5;
+  @apply btn border border-white/20 text-white hover:border-brand-soft hover:bg-white/5;
 }
 
 @utility field {
-  @apply w-full rounded-2xl border border-white/12 bg-ink-2/80 px-4 py-3.5 text-base text-white placeholder:text-mist/70 transition outline-none focus:border-neon focus:ring-4 focus:ring-neon/20;
+  @apply w-full rounded-2xl border border-white/12 bg-ink-2/80 px-4 py-3.5 text-base text-white placeholder:text-muted/70 transition outline-none focus:border-brand focus:ring-4 focus:ring-brand/20;
 }
 
 /* Fade-and-rise on scroll, CSS only; browsers without scroll timelines just show content. */

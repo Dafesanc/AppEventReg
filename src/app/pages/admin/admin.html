@@ -1,14 +1,14 @@
 <main class="mx-auto min-h-svh max-w-6xl px-4 py-10 sm:px-6">
   @if (!rows()) {
     <!-- ─────────────── Login ─────────────── -->
-    <form class="card glow-neon mx-auto mt-[12vh] max-w-sm p-8 text-center" (submit)="login($event)">
-      <img src="img/euphoria-logo-480.webp" width="480" height="480" alt="" class="mx-auto -my-6 w-48" />
+    <form class="card glow-brand mx-auto mt-[12vh] max-w-sm p-8 text-center" (submit)="login($event)">
+      <img src="img/spooky-logo-480.webp" width="480" height="480" alt="" class="mx-auto -mt-4 mb-2 w-44" />
       <h1 class="font-display text-3xl text-white uppercase">Panel de registros</h1>
       <p class="mt-1 text-sm">Solo organizadores</p>
 
       <label for="password" class="sr-only">Contraseña</label>
       <div class="relative mt-6">
-        <app-icon name="lock" class="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-mist" />
+        <app-icon name="lock" class="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-muted" />
         <input
           id="password"
           type="password"
@@ -21,7 +21,7 @@
       </div>
 
       @if (error(); as message) {
-        <p class="mt-4 text-sm text-rose" role="alert">{{ message }}</p>
+        <p class="mt-4 text-sm text-brand-soft" role="alert">{{ message }}</p>
       }
 
       <button type="submit" class="btn-primary mt-6 w-full" [disabled]="loading() || !password()">
@@ -43,36 +43,36 @@
           <app-icon name="download" class="size-4" />
           {{ downloading() ? 'Generando…' : 'Descargar Excel' }}
         </button>
-        <button type="button" class="btn px-4 py-2.5 text-mist hover:text-white" (click)="logout()">Salir</button>
+        <button type="button" class="btn px-4 py-2.5 text-muted hover:text-white" (click)="logout()">Salir</button>
       </div>
     </header>
 
     <dl class="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
       <div class="card p-5">
-        <dt class="text-xs tracking-widest text-mist uppercase">Pre-registrados</dt>
+        <dt class="text-xs tracking-widest text-muted uppercase">Pre-registrados</dt>
         <dd class="mt-1 font-display text-4xl text-white">{{ stats().total }}</dd>
       </div>
       <div class="card p-5">
-        <dt class="text-xs tracking-widest text-mist uppercase">Pagados</dt>
+        <dt class="text-xs tracking-widest text-muted uppercase">Pagados</dt>
         <dd class="mt-1 font-display text-4xl text-whatsapp">{{ stats().paid }}</dd>
       </div>
       <div class="card p-5">
-        <dt class="text-xs tracking-widest text-mist uppercase">Pendientes</dt>
-        <dd class="mt-1 font-display text-4xl text-rose">{{ stats().pending }}</dd>
+        <dt class="text-xs tracking-widest text-muted uppercase">Pendientes</dt>
+        <dd class="mt-1 font-display text-4xl text-brand-soft">{{ stats().pending }}</dd>
       </div>
       <div class="card p-5">
-        <dt class="text-xs tracking-widest text-mist uppercase">Recaudado</dt>
+        <dt class="text-xs tracking-widest text-muted uppercase">Recaudado</dt>
         <dd class="mt-1 font-display text-4xl text-white">${{ stats().revenue }}</dd>
       </div>
     </dl>
 
     @if (error(); as message) {
-      <p class="mt-6 rounded-2xl border border-neon/40 bg-neon/10 px-4 py-3 text-sm text-white" role="alert">{{ message }}</p>
+      <p class="mt-6 rounded-2xl border border-brand/40 bg-brand/10 px-4 py-3 text-sm text-white" role="alert">{{ message }}</p>
     }
 
     <div class="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div class="relative sm:w-80">
-        <app-icon name="search" class="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-mist" />
+        <app-icon name="search" class="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-muted" />
         <input
           type="search"
           class="field py-2.5 pl-12"
@@ -86,7 +86,7 @@
           <button
             type="button"
             class="rounded-full px-4 py-1.5 text-sm font-semibold transition"
-            [class]="filter() === f.value ? 'bg-white text-ink' : 'text-haze hover:text-white'"
+            [class]="filter() === f.value ? 'bg-white text-ink' : 'text-fg hover:text-white'"
             [attr.aria-pressed]="filter() === f.value"
             (click)="filter.set(f.value)"
           >
@@ -98,7 +98,7 @@
 
     <div class="card mt-4 overflow-x-auto">
       <table class="w-full min-w-[760px] text-left text-sm">
-        <thead class="border-b border-white/10 text-xs tracking-widest text-mist uppercase">
+        <thead class="border-b border-white/10 text-xs tracking-widest text-muted uppercase">
           <tr>
             <th scope="col" class="px-5 py-4 font-semibold">Código</th>
             <th scope="col" class="px-5 py-4 font-semibold">Nombre</th>
@@ -111,7 +111,7 @@
         <tbody class="divide-y divide-white/5">
           @for (r of visible(); track r.id) {
             <tr class="transition hover:bg-white/[0.03]">
-              <td class="px-5 py-3.5 font-mono text-rose">{{ r.ticket }}</td>
+              <td class="px-5 py-3.5 font-mono text-brand-soft">{{ r.ticket }}</td>
               <td class="px-5 py-3.5 font-semibold text-white">{{ r.fullName }}</td>
               <td class="px-5 py-3.5 font-mono">{{ r.cedula }}</td>
               <td class="px-5 py-3.5">
@@ -119,7 +119,7 @@
                   <app-icon name="whatsapp" class="size-4" /> {{ phone(r.phone) }}
                 </a>
               </td>
-              <td class="px-5 py-3.5 whitespace-nowrap text-mist">{{ date(r.createdAt) }}</td>
+              <td class="px-5 py-3.5 whitespace-nowrap text-muted">{{ date(r.createdAt) }}</td>
               <td class="px-5 py-3.5 text-right">
                 <button
                   type="button"
@@ -127,7 +127,7 @@
                   [class]="
                     r.paymentStatus === 'paid'
                       ? 'border-whatsapp/50 bg-whatsapp/15 text-whatsapp hover:bg-whatsapp/25'
-                      : 'border-white/15 text-haze hover:border-rose hover:text-white'
+                      : 'border-white/15 text-fg hover:border-brand-soft hover:text-white'
                   "
                   [disabled]="saving() === r.id"
                   [title]="r.paymentStatus === 'paid' ? 'Marcar como pendiente' : 'Marcar como pagado'"
@@ -144,7 +144,7 @@
             </tr>
           } @empty {
             <tr>
-              <td colspan="6" class="px-5 py-14 text-center text-mist">
+              <td colspan="6" class="px-5 py-14 text-center text-muted">
                 {{ stats().total ? 'Sin resultados para este filtro.' : 'Aún no hay pre-registros.' }}
               </td>
             </tr>
@@ -152,7 +152,7 @@
         </tbody>
       </table>
     </div>
-    <p class="mt-4 text-xs text-mist">
+    <p class="mt-4 text-xs text-muted">
       Marca como pagado cuando confirmes la transferencia. Los pagos con tarjeta se marcan solos.
     </p>
   }

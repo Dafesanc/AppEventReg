@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { Countdown } from '../../components/countdown/countdown';
+import { BatSwarm } from '../../components/halloween/bat-swarm';
+import { Sticker } from '../../components/halloween/sticker';
 import { Icon, type IconName } from '../../components/icon/icon';
 import { RegistrationForm } from '../../components/registration-form/registration-form';
 import { Seo } from '../../core/seo';
@@ -8,6 +10,7 @@ import {
   coverLabel,
   dateLabels,
   eventDescription,
+  eventSlug,
   instagramUrl,
   whatsappUrl,
 } from '../../shared/event.config';
@@ -18,9 +21,11 @@ interface Feature {
   text: string;
 }
 
+const FLYER = 'img/spooky-flyer.jpg';
+
 @Component({
   selector: 'app-home',
-  imports: [Countdown, Icon, RegistrationForm],
+  imports: [BatSwarm, Countdown, Icon, RegistrationForm, Sticker],
   templateUrl: './home.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -29,18 +34,11 @@ export class Home {
   protected readonly coverLabel = coverLabel;
   protected readonly dateLabels = dateLabels;
   protected readonly organizerUrl = instagramUrl(EVENT.organizer.instagram);
-  protected readonly questionsUrl = whatsappUrl(`¡Hola! Tengo una pregunta sobre ${EVENT.name} 🎉`);
+  protected readonly questionsUrl = whatsappUrl(`¡Hola! Tengo una pregunta sobre ${EVENT.name} 🎃`);
   protected readonly year = new Date(EVENT.startDate).getFullYear();
+  protected readonly flyerFileName = `${eventSlug}-flyer.jpg`;
   protected readonly flyerAlt =
-    `Flyer de ${EVENT.name}: ${dateLabels.dayMonth}, ${EVENT.venue.name}, ${EVENT.doorsLabel}, ` +
-    `cover ${coverLabel} con ${EVENT.cover.perk.toLowerCase()}`;
-
-  protected readonly sparkles = [
-    'top-[14%] left-[8%] size-6',
-    'top-[22%] right-[10%] size-8',
-    'bottom-[30%] left-[14%] size-5 max-sm:hidden',
-    'bottom-[24%] right-[16%] size-4 max-sm:hidden',
-  ];
+    `Flyer de ${EVENT.name}: ${EVENT.venue.name}, ${dateLabels.dayMonth}, cover ${coverLabel}. ${EVENT.slogan}`;
 
   protected readonly marquee = [
     EVENT.name,
@@ -60,9 +58,9 @@ export class Home {
 
   protected readonly inside: Feature[] = [
     { icon: 'wine', title: 'Bebidas', text: 'A la venta dentro del recinto.' },
-    { icon: 'martini', title: 'Cócteles', text: 'Para brindar toda la noche.' },
-    { icon: 'cookie', title: 'Snacks', text: 'Para recargar energía entre canciones.' },
-    { icon: 'camera', title: 'Photocall', text: 'Tu spot para las selfies de la noche.' },
+    { icon: 'martini', title: 'Cócteles', text: 'Pociones para brindar toda la noche.' },
+    { icon: 'cookie', title: 'Snacks', text: 'Para recargar energía entre sustos.' },
+    { icon: 'camera', title: 'Photocall', text: 'Tu spot para las selfies más terroríficas.' },
   ];
 
   protected readonly rules: Feature[] = [
@@ -74,20 +72,20 @@ export class Home {
   protected readonly steps = [
     { title: 'Pre-regístrate', text: 'Nombre, cédula y celular. Toma 30 segundos.' },
     { title: 'Paga tu entrada', text: `Cover de ${coverLabel} por transferencia vía WhatsApp${EVENT.cardPaymentsEnabled ? ' o con tarjeta' : ''}.` },
-    { title: 'Vive Euphoria', text: `Te esperamos el ${dateLabels.long.toLowerCase()} desde las ${EVENT.doorsLabel}.` },
+    { title: `Vive ${EVENT.name}`, text: `Te esperamos el ${dateLabels.long.toLowerCase()} desde las ${EVENT.doorsLabel}.` },
   ];
 
   constructor() {
     const seo = inject(Seo);
     const image = {
-      url: 'img/og-euphoria.jpg',
+      url: 'img/spooky-og.jpg',
       width: 1200,
       height: 630,
       alt: `${EVENT.name} — ${EVENT.tagline}`,
     };
 
     seo.setPage({
-      title: `${EVENT.name} — Fiesta ${dateLabels.dayMonth} · ${EVENT.venue.name}, ${EVENT.venue.city}`,
+      title: `${EVENT.name} — Fiesta de Halloween ${dateLabels.dayMonth} · ${EVENT.venue.name}, ${EVENT.venue.city}`,
       description: eventDescription,
       image,
     });
@@ -100,7 +98,7 @@ export class Home {
       startDate: EVENT.startDate,
       eventStatus: 'https://schema.org/EventScheduled',
       eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
-      image: [seo.absolute(image.url), seo.absolute('img/euphoria-flyer.jpg')],
+      image: [seo.absolute(image.url), seo.absolute(FLYER)],
       location: {
         '@type': 'Place',
         name: EVENT.venue.name,
